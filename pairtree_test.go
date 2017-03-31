@@ -92,7 +92,7 @@ func rang(n int) (out []pair.Pair) {
 }
 
 // all extracts all items from a tree in order as a slice.
-func all(t *BTree) (out []pair.Pair) {
+func all(t *PairTree) (out []pair.Pair) {
 	t.Ascend(func(a pair.Pair) bool {
 		out = append(out, a)
 		return true
@@ -109,7 +109,7 @@ func rangrev(n int) (out []pair.Pair) {
 }
 
 // allrev extracts all items from a tree in reverse order as a slice.
-func allrev(t *BTree) (out []pair.Pair) {
+func allrev(t *PairTree) (out []pair.Pair) {
 	t.Descend(func(a pair.Pair) bool {
 		out = append(out, a)
 		return true
@@ -681,7 +681,7 @@ func BenchmarkDescendLessOrEqual(b *testing.B) {
 
 const cloneTestSize = 10000
 
-func cloneTest(t *testing.T, b *BTree, start int, p []pair.Pair, wg *sync.WaitGroup, trees *[]*BTree) {
+func cloneTest(t *testing.T, b *PairTree, start int, p []pair.Pair, wg *sync.WaitGroup, trees *[]*PairTree) {
 	t.Logf("Starting new clone at %v", start)
 	*trees = append(*trees, b)
 	for i := start; i < cloneTestSize; i++ {
@@ -696,7 +696,7 @@ func cloneTest(t *testing.T, b *BTree, start int, p []pair.Pair, wg *sync.WaitGr
 
 func TestCloneConcurrentOperations(t *testing.T) {
 	b := New(*btreeDegree, lessFn)
-	trees := []*BTree{}
+	trees := []*PairTree{}
 	p := perm(cloneTestSize)
 	var wg sync.WaitGroup
 	wg.Add(1)

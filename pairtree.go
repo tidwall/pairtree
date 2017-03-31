@@ -112,12 +112,12 @@ type PairIterator func(i pair.Pair) bool
 //
 // New(2), for example, will create a 2-3-4 tree (each node contains 1-3 items
 // and 2-4 children).
-func New(degree int, less func(a, b pair.Pair) bool) *BTree {
+func New(degree int, less func(a, b pair.Pair) bool) *PairTree {
 	return NewWithFreeList(degree, NewFreeList(DefaultFreeListSize), less)
 }
 
 // NewWithFreeList creates a new B-Tree that uses the given node free list.
-func NewWithFreeList(degree int, f *FreeList, less func(a, b pair.Pair) bool) *BTree {
+func NewWithFreeList(degree int, f *FreeList, less func(a, b pair.Pair) bool) *PairTree {
 	if degree <= 1 {
 		panic("bad degree")
 	}
@@ -126,7 +126,7 @@ func NewWithFreeList(degree int, f *FreeList, less func(a, b pair.Pair) bool) *B
 			return bytes.Compare(a.Key(), b.Key()) == -1
 		}
 	}
-	return &BTree{
+	return &PairTree{
 		degree: degree,
 		cow:    &copyOnWriteContext{freelist: f},
 		less:   less,
@@ -568,14 +568,14 @@ func (n *node) print(w io.Writer, level int) {
 	}
 }
 
-// BTree is an implementation of a B-Tree.
+// PairTree is an implementation of a B-Tree.
 //
-// BTree stores Pair instances in an ordered structure, allowing easy insertion,
+// PairTree stores Pair instances in an ordered structure, allowing easy insertion,
 // removal, and iteration.
 //
 // Write operations are not safe for concurrent mutation by multiple
 // goroutines, but Read operations are.
-type BTree struct {
+type PairTree struct {
 	degree int
 	length int
 	root   *node
@@ -612,7 +612,7 @@ type copyOnWriteContext struct {
 // will initially experience minor slow-downs caused by additional allocs and
 // copies due to the aforementioned copy-on-write logic, but should converge to
 // the original performance characteristics of the original tree.
-func (t *BTree) Clone() (t2 *BTree) {
+func (t *PairTree) Clone() (t2 *PairTree) {
 	// Create two entirely new copy-on-write contexts.
 	// This operation effectively creates three trees:
 	//   the original, shared nodes (old b.cow)
@@ -626,13 +626,13 @@ func (t *BTree) Clone() (t2 *BTree) {
 }
 
 // maxPairs returns the max number of items to allow per node.
-func (t *BTree) maxPairs() int {
+func (t *PairTree) maxPairs() int {
 	return t.degree*2 - 1
 }
 
 // minPairs returns the min number of items to allow per node (ignored for the
 // root node).
-func (t *BTree) minPairs() int {
+func (t *PairTree) minPairs() int {
 	return t.degree - 1
 }
 
@@ -657,7 +657,7 @@ func (c *copyOnWriteContext) freeNode(n *node) {
 // Otherwise, nil is returned.
 //
 // nil cannot be added to the tree (will panic).
-func (t *BTree) ReplaceOrInsert(item pair.Pair) pair.Pair {
+func (t *PairTree) ReplaceOrInsert(item pair.Pair) pair.Pair {
 	if item == nilPair {
 		panic("nil item being added to BTree")
 	}
@@ -685,23 +685,23 @@ func (t *BTree) ReplaceOrInsert(item pair.Pair) pair.Pair {
 
 // Delete removes an item equal to the passed in item from the tree, returning
 // it.  If no such item exists, returns nil.
-func (t *BTree) Delete(item pair.Pair) pair.Pair {
+func (t *PairTree) Delete(item pair.Pair) pair.Pair {
 	return t.deletePair(item, removePair, t.less)
 }
 
 // DeleteMin removes the smallest item in the tree and returns it.
 // If no such item exists, returns nil.
-func (t *BTree) DeleteMin() pair.Pair {
+func (t *PairTree) DeleteMin() pair.Pair {
 	return t.deletePair(nilPair, removeMin, t.less)
 }
 
 // DeleteMax removes the largest item in the tree and returns it.
 // If no such item exists, returns nil.
-func (t *BTree) DeleteMax() pair.Pair {
+func (t *PairTree) DeleteMax() pair.Pair {
 	return t.deletePair(nilPair, removeMax, t.less)
 }
 
-func (t *BTree) deletePair(item pair.Pair, typ toRemove, less func(a, b pair.Pair) bool) pair.Pair {
+func (t *PairTree) deletePair(item pair.Pair, typ toRemove, less func(a, b pair.Pair) bool) pair.Pair {
 	if t.root == nil || len(t.root.items) == 0 {
 		return nilPair
 	}
@@ -720,7 +720,7 @@ func (t *BTree) deletePair(item pair.Pair, typ toRemove, less func(a, b pair.Pai
 
 // AscendRange calls the iterator for every value in the tree within the range
 // [greaterOrEqual, lessThan), until iterator returns false.
-func (t *BTree) AscendRange(greaterOrEqual, lessThan pair.Pair, iterator PairIterator) {
+func (t *PairTree) AscendRange(greaterOrEqual, lessThan pair.Pair, iterator PairIterator) {
 	if t.root == nil {
 		return
 	}
@@ -729,7 +729,7 @@ func (t *BTree) AscendRange(greaterOrEqual, lessThan pair.Pair, iterator PairIte
 
 // AscendLessThan calls the iterator for every value in the tree within the range
 // [first, pivot), until iterator returns false.
-func (t *BTree) AscendLessThan(pivot pair.Pair, iterator PairIterator) {
+func (t *PairTree) AscendLessThan(pivot pair.Pair, iterator PairIterator) {
 	if t.root == nil {
 		return
 	}
@@ -738,7 +738,7 @@ func (t *BTree) AscendLessThan(pivot pair.Pair, iterator PairIterator) {
 
 // AscendGreaterOrEqual calls the iterator for every value in the tree within
 // the range [pivot, last], until iterator returns false.
-func (t *BTree) AscendGreaterOrEqual(pivot pair.Pair, iterator PairIterator) {
+func (t *PairTree) AscendGreaterOrEqual(pivot pair.Pair, iterator PairIterator) {
 	if t.root == nil {
 		return
 	}
@@ -747,7 +747,7 @@ func (t *BTree) AscendGreaterOrEqual(pivot pair.Pair, iterator PairIterator) {
 
 // Ascend calls the iterator for every value in the tree within the range
 // [first, last], until iterator returns false.
-func (t *BTree) Ascend(iterator PairIterator) {
+func (t *PairTree) Ascend(iterator PairIterator) {
 	if t.root == nil {
 		return
 	}
@@ -756,7 +756,7 @@ func (t *BTree) Ascend(iterator PairIterator) {
 
 // DescendRange calls the iterator for every value in the tree within the range
 // [lessOrEqual, greaterThan), until iterator returns false.
-func (t *BTree) DescendRange(lessOrEqual, greaterThan pair.Pair, iterator PairIterator) {
+func (t *PairTree) DescendRange(lessOrEqual, greaterThan pair.Pair, iterator PairIterator) {
 	if t.root == nil {
 		return
 	}
@@ -765,7 +765,7 @@ func (t *BTree) DescendRange(lessOrEqual, greaterThan pair.Pair, iterator PairIt
 
 // DescendLessOrEqual calls the iterator for every value in the tree within the range
 // [pivot, first], until iterator returns false.
-func (t *BTree) DescendLessOrEqual(pivot pair.Pair, iterator PairIterator) {
+func (t *PairTree) DescendLessOrEqual(pivot pair.Pair, iterator PairIterator) {
 	if t.root == nil {
 		return
 	}
@@ -774,7 +774,7 @@ func (t *BTree) DescendLessOrEqual(pivot pair.Pair, iterator PairIterator) {
 
 // DescendGreaterThan calls the iterator for every value in the tree within
 // the range (pivot, last], until iterator returns false.
-func (t *BTree) DescendGreaterThan(pivot pair.Pair, iterator PairIterator) {
+func (t *PairTree) DescendGreaterThan(pivot pair.Pair, iterator PairIterator) {
 	if t.root == nil {
 		return
 	}
@@ -783,7 +783,7 @@ func (t *BTree) DescendGreaterThan(pivot pair.Pair, iterator PairIterator) {
 
 // Descend calls the iterator for every value in the tree within the range
 // [last, first], until iterator returns false.
-func (t *BTree) Descend(iterator PairIterator) {
+func (t *PairTree) Descend(iterator PairIterator) {
 	if t.root == nil {
 		return
 	}
@@ -792,7 +792,7 @@ func (t *BTree) Descend(iterator PairIterator) {
 
 // Get looks for the key item in the tree, returning it.  It returns nil if
 // unable to find that item.
-func (t *BTree) Get(key pair.Pair) pair.Pair {
+func (t *PairTree) Get(key pair.Pair) pair.Pair {
 	if t.root == nil {
 		return nilPair
 	}
@@ -800,22 +800,22 @@ func (t *BTree) Get(key pair.Pair) pair.Pair {
 }
 
 // Min returns the smallest item in the tree, or nil if the tree is empty.
-func (t *BTree) Min() pair.Pair {
+func (t *PairTree) Min() pair.Pair {
 	return min(t.root)
 }
 
 // Max returns the largest item in the tree, or nil if the tree is empty.
-func (t *BTree) Max() pair.Pair {
+func (t *PairTree) Max() pair.Pair {
 	return max(t.root)
 }
 
 // Has returns true if the given key is in the tree.
-func (t *BTree) Has(key pair.Pair) bool {
+func (t *PairTree) Has(key pair.Pair) bool {
 	return t.Get(key) != nilPair
 }
 
 // Len returns the number of items currently in the tree.
-func (t *BTree) Len() int {
+func (t *PairTree) Len() int {
 	return t.length
 }
 
@@ -830,12 +830,12 @@ type stackPair struct {
 // Changing data while traversing a cursor may result in unexpected items to
 // be returned. You must reposition your cursor after mutating data.
 type Cursor struct {
-	t     *BTree
+	t     *PairTree
 	stack []stackPair
 }
 
 // Cursor returns a new cursor used to traverse over items in the tree.
-func (t *BTree) Cursor() *Cursor {
+func (t *PairTree) Cursor() *Cursor {
 	return &Cursor{t: t}
 }
 
