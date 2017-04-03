@@ -58,7 +58,8 @@ import (
 )
 
 const (
-	DefaultFreeListSize = 32
+	defaultFreeListSize = 32
+	defaultDegrees      = 9
 )
 
 var (
@@ -66,22 +67,22 @@ var (
 	nilChildren = make(children, 16)
 )
 
-// FreeList represents a free list of btree nodes. By default each
-// BTree has its own FreeList, but multiple BTrees can share the same
-// FreeList.
+// freeList represents a free list of btree nodes. By default each
+// BTree has its own freeList, but multiple BTrees can share the same
+// freeList.
 // Two Btrees using the same freelist are safe for concurrent write access.
-type FreeList struct {
+type freeList struct {
 	mu       sync.Mutex
 	freelist []*node
 }
 
-// NewFreeList creates a new free list.
+// newFreeList creates a new free list.
 // size is the maximum size of the returned free list.
-func NewFreeList(size int) *FreeList {
-	return &FreeList{freelist: make([]*node, 0, size)}
+func newFreeList(size int) *freeList {
+	return &freeList{freelist: make([]*node, 0, size)}
 }
 
-func (f *FreeList) newNode() (n *node) {
+func (f *freeList) newNode() (n *node) {
 	f.mu.Lock()
 	index := len(f.freelist) - 1
 	if index < 0 {
@@ -95,7 +96,7 @@ func (f *FreeList) newNode() (n *node) {
 	return
 }
 
-func (f *FreeList) freeNode(n *node) {
+func (f *freeList) freeNode(n *node) {
 	f.mu.Lock()
 	if len(f.freelist) < cap(f.freelist) {
 		f.freelist = append(f.freelist, n)
@@ -103,31 +104,23 @@ func (f *FreeList) freeNode(n *node) {
 	f.mu.Unlock()
 }
 
-// PairIterator allows callers of Ascend* to iterate in-order over portions of
-// the tree.  When this function returns false, iteration will stop and the
-// associated Ascend* function will immediately return.
-type PairIterator func(i pair.Pair) bool
-
 // New creates a new B-Tree with the given degree.
 //
 // New(2), for example, will create a 2-3-4 tree (each node contains 1-3 items
 // and 2-4 children).
-func New(degree int, less func(a, b pair.Pair) bool) *PairTree {
-	return NewWithFreeList(degree, NewFreeList(DefaultFreeListSize), less)
+func New(less func(a, b pair.Pair) bool) *PairTree {
+	return newWithFreeList(newFreeList(defaultFreeListSize), less)
 }
 
-// NewWithFreeList creates a new B-Tree that uses the given node free list.
-func NewWithFreeList(degree int, f *FreeList, less func(a, b pair.Pair) bool) *PairTree {
-	if degree <= 1 {
-		panic("bad degree")
-	}
+// newWithFreeList creates a new B-Tree that uses the given node free list.
+func newWithFreeList(f *freeList, less func(a, b pair.Pair) bool) *PairTree {
 	if less == nil {
 		less = func(a, b pair.Pair) bool {
 			return bytes.Compare(a.Key(), b.Key()) == -1
 		}
 	}
 	return &PairTree{
-		degree: degree,
+		degree: defaultDegrees,
 		cow:    &copyOnWriteContext{freelist: f},
 		less:   less,
 	}
@@ -501,7 +494,7 @@ const (
 // will force the iterator to include the first item when it equals 'start',
 // thus creating a "greaterOrEqual" or "lessThanEqual" rather than just a
 // "greaterThan" or "lessThan" queries.
-func (n *node) iterate(dir direction, start, stop pair.Pair, includeStart bool, hit bool, iter PairIterator, less func(a, b pair.Pair) bool) (bool, bool) {
+func (n *node) iterate(dir direction, start, stop pair.Pair, includeStart bool, hit bool, iter func(item pair.Pair) bool, less func(a, b pair.Pair) bool) (bool, bool) {
 	var ok bool
 	switch dir {
 	case ascend:
@@ -598,7 +591,7 @@ type PairTree struct {
 // not share context, but before we descend into them, we'll make a mutable
 // copy.
 type copyOnWriteContext struct {
-	freelist *FreeList
+	freelist *freeList
 }
 
 // Clone clones the btree, lazily.  Clone should not be called concurrently,
@@ -720,7 +713,7 @@ func (t *PairTree) deletePair(item pair.Pair, typ toRemove, less func(a, b pair.
 
 // AscendRange calls the iterator for every value in the tree within the range
 // [greaterOrEqual, lessThan), until iterator returns false.
-func (t *PairTree) AscendRange(greaterOrEqual, lessThan pair.Pair, iterator PairIterator) {
+func (t *PairTree) AscendRange(greaterOrEqual, lessThan pair.Pair, iterator func(item pair.Pair) bool) {
 	if t.root == nil {
 		return
 	}
@@ -729,7 +722,7 @@ func (t *PairTree) AscendRange(greaterOrEqual, lessThan pair.Pair, iterator Pair
 
 // AscendLessThan calls the iterator for every value in the tree within the range
 // [first, pivot), until iterator returns false.
-func (t *PairTree) AscendLessThan(pivot pair.Pair, iterator PairIterator) {
+func (t *PairTree) AscendLessThan(pivot pair.Pair, iterator func(item pair.Pair) bool) {
 	if t.root == nil {
 		return
 	}
@@ -738,7 +731,7 @@ func (t *PairTree) AscendLessThan(pivot pair.Pair, iterator PairIterator) {
 
 // AscendGreaterOrEqual calls the iterator for every value in the tree within
 // the range [pivot, last], until iterator returns false.
-func (t *PairTree) AscendGreaterOrEqual(pivot pair.Pair, iterator PairIterator) {
+func (t *PairTree) AscendGreaterOrEqual(pivot pair.Pair, iterator func(item pair.Pair) bool) {
 	if t.root == nil {
 		return
 	}
@@ -747,7 +740,7 @@ func (t *PairTree) AscendGreaterOrEqual(pivot pair.Pair, iterator PairIterator) 
 
 // Ascend calls the iterator for every value in the tree within the range
 // [first, last], until iterator returns false.
-func (t *PairTree) Ascend(iterator PairIterator) {
+func (t *PairTree) Ascend(iterator func(item pair.Pair) bool) {
 	if t.root == nil {
 		return
 	}
@@ -756,7 +749,7 @@ func (t *PairTree) Ascend(iterator PairIterator) {
 
 // DescendRange calls the iterator for every value in the tree within the range
 // [lessOrEqual, greaterThan), until iterator returns false.
-func (t *PairTree) DescendRange(lessOrEqual, greaterThan pair.Pair, iterator PairIterator) {
+func (t *PairTree) DescendRange(lessOrEqual, greaterThan pair.Pair, iterator func(item pair.Pair) bool) {
 	if t.root == nil {
 		return
 	}
@@ -765,7 +758,7 @@ func (t *PairTree) DescendRange(lessOrEqual, greaterThan pair.Pair, iterator Pai
 
 // DescendLessOrEqual calls the iterator for every value in the tree within the range
 // [pivot, first], until iterator returns false.
-func (t *PairTree) DescendLessOrEqual(pivot pair.Pair, iterator PairIterator) {
+func (t *PairTree) DescendLessOrEqual(pivot pair.Pair, iterator func(item pair.Pair) bool) {
 	if t.root == nil {
 		return
 	}
@@ -774,7 +767,7 @@ func (t *PairTree) DescendLessOrEqual(pivot pair.Pair, iterator PairIterator) {
 
 // DescendGreaterThan calls the iterator for every value in the tree within
 // the range (pivot, last], until iterator returns false.
-func (t *PairTree) DescendGreaterThan(pivot pair.Pair, iterator PairIterator) {
+func (t *PairTree) DescendGreaterThan(pivot pair.Pair, iterator func(item pair.Pair) bool) {
 	if t.root == nil {
 		return
 	}
@@ -783,7 +776,7 @@ func (t *PairTree) DescendGreaterThan(pivot pair.Pair, iterator PairIterator) {
 
 // Descend calls the iterator for every value in the tree within the range
 // [last, first], until iterator returns false.
-func (t *PairTree) Descend(iterator PairIterator) {
+func (t *PairTree) Descend(iterator func(item pair.Pair) bool) {
 	if t.root == nil {
 		return
 	}

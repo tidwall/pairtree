@@ -16,7 +16,6 @@ package pairtree
 
 import (
 	"encoding/binary"
-	"flag"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -117,10 +116,8 @@ func allrev(t *PairTree) (out []pair.Pair) {
 	return
 }
 
-var btreeDegree = flag.Int("degree", 32, "B-Tree degree")
-
 func TestBTree(t *testing.T) {
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	const treeSize = 10
 	for i := 0; i < 10; i++ {
 		if min := tr.Min(); min != nilPair {
@@ -169,7 +166,7 @@ func TestBTree(t *testing.T) {
 }
 
 func ExampleBTree() {
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for i := 0; i < 10; i++ {
 		tr.ReplaceOrInsert(Int(i))
 	}
@@ -201,7 +198,7 @@ func ExampleBTree() {
 }
 
 func TestDeleteMin(t *testing.T) {
-	tr := New(3, lessFn)
+	tr := New(lessFn)
 	for _, v := range perm(100) {
 		tr.ReplaceOrInsert(v)
 	}
@@ -215,7 +212,7 @@ func TestDeleteMin(t *testing.T) {
 }
 
 func TestDeleteMax(t *testing.T) {
-	tr := New(3, lessFn)
+	tr := New(lessFn)
 	for _, v := range perm(100) {
 		tr.ReplaceOrInsert(v)
 	}
@@ -233,7 +230,7 @@ func TestDeleteMax(t *testing.T) {
 }
 
 func TestAscendRange(t *testing.T) {
-	tr := New(2, lessFn)
+	tr := New(lessFn)
 	for _, v := range perm(100) {
 		tr.ReplaceOrInsert(v)
 	}
@@ -259,7 +256,7 @@ func TestAscendRange(t *testing.T) {
 }
 
 func TestDescendRange(t *testing.T) {
-	tr := New(2, lessFn)
+	tr := New(lessFn)
 	for _, v := range perm(100) {
 		tr.ReplaceOrInsert(v)
 	}
@@ -285,7 +282,7 @@ func TestDescendRange(t *testing.T) {
 }
 
 func TestAscendLessThan(t *testing.T) {
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, v := range perm(100) {
 		tr.ReplaceOrInsert(v)
 	}
@@ -311,7 +308,7 @@ func TestAscendLessThan(t *testing.T) {
 }
 
 func TestDescendLessOrEqual(t *testing.T) {
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, v := range perm(100) {
 		tr.ReplaceOrInsert(v)
 	}
@@ -337,7 +334,7 @@ func TestDescendLessOrEqual(t *testing.T) {
 }
 
 func TestAscendGreaterOrEqual(t *testing.T) {
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, v := range perm(100) {
 		tr.ReplaceOrInsert(v)
 	}
@@ -363,7 +360,7 @@ func TestAscendGreaterOrEqual(t *testing.T) {
 }
 
 func TestDescendGreaterThan(t *testing.T) {
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, v := range perm(100) {
 		tr.ReplaceOrInsert(v)
 	}
@@ -396,7 +393,7 @@ func BenchmarkInsert(b *testing.B) {
 	b.StartTimer()
 	i := 0
 	for i < b.N {
-		tr := New(*btreeDegree, lessFn)
+		tr := New(lessFn)
 		for _, item := range insertP {
 			tr.ReplaceOrInsert(item)
 			i++
@@ -410,7 +407,7 @@ func BenchmarkInsert(b *testing.B) {
 func BenchmarkDeleteInsert(b *testing.B) {
 	b.StopTimer()
 	insertP := perm(benchmarkTreeSize)
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, item := range insertP {
 		tr.ReplaceOrInsert(item)
 	}
@@ -424,7 +421,7 @@ func BenchmarkDeleteInsert(b *testing.B) {
 func BenchmarkDeleteInsertCloneOnce(b *testing.B) {
 	b.StopTimer()
 	insertP := perm(benchmarkTreeSize)
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, item := range insertP {
 		tr.ReplaceOrInsert(item)
 	}
@@ -439,7 +436,7 @@ func BenchmarkDeleteInsertCloneOnce(b *testing.B) {
 func BenchmarkDeleteInsertCloneEachTime(b *testing.B) {
 	b.StopTimer()
 	insertP := perm(benchmarkTreeSize)
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, item := range insertP {
 		tr.ReplaceOrInsert(item)
 	}
@@ -459,7 +456,7 @@ func BenchmarkDelete(b *testing.B) {
 	i := 0
 	for i < b.N {
 		b.StopTimer()
-		tr := New(*btreeDegree, lessFn)
+		tr := New(lessFn)
 		for _, v := range insertP {
 			tr.ReplaceOrInsert(v)
 		}
@@ -485,7 +482,7 @@ func BenchmarkGet(b *testing.B) {
 	i := 0
 	for i < b.N {
 		b.StopTimer()
-		tr := New(*btreeDegree, lessFn)
+		tr := New(lessFn)
 		for _, v := range insertP {
 			tr.ReplaceOrInsert(v)
 		}
@@ -508,7 +505,7 @@ func BenchmarkGetCloneEachTime(b *testing.B) {
 	i := 0
 	for i < b.N {
 		b.StopTimer()
-		tr := New(*btreeDegree, lessFn)
+		tr := New(lessFn)
 		for _, v := range insertP {
 			tr.ReplaceOrInsert(v)
 		}
@@ -540,7 +537,7 @@ func (a byInts) Swap(i, j int) {
 
 func BenchmarkAscend(b *testing.B) {
 	arr := perm(benchmarkTreeSize)
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, v := range arr {
 		tr.ReplaceOrInsert(v)
 	}
@@ -560,7 +557,7 @@ func BenchmarkAscend(b *testing.B) {
 
 func BenchmarkDescend(b *testing.B) {
 	arr := perm(benchmarkTreeSize)
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, v := range arr {
 		tr.ReplaceOrInsert(v)
 	}
@@ -580,7 +577,7 @@ func BenchmarkDescend(b *testing.B) {
 
 func BenchmarkAscendRange(b *testing.B) {
 	arr := perm(benchmarkTreeSize)
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, v := range arr {
 		tr.ReplaceOrInsert(v)
 	}
@@ -603,7 +600,7 @@ func BenchmarkAscendRange(b *testing.B) {
 
 func BenchmarkDescendRange(b *testing.B) {
 	arr := perm(benchmarkTreeSize)
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, v := range arr {
 		tr.ReplaceOrInsert(v)
 	}
@@ -625,7 +622,7 @@ func BenchmarkDescendRange(b *testing.B) {
 }
 func BenchmarkAscendGreaterOrEqual(b *testing.B) {
 	arr := perm(benchmarkTreeSize)
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, v := range arr {
 		tr.ReplaceOrInsert(v)
 	}
@@ -653,7 +650,7 @@ func BenchmarkAscendGreaterOrEqual(b *testing.B) {
 
 func BenchmarkDescendLessOrEqual(b *testing.B) {
 	arr := perm(benchmarkTreeSize)
-	tr := New(*btreeDegree, lessFn)
+	tr := New(lessFn)
 	for _, v := range arr {
 		tr.ReplaceOrInsert(v)
 	}
@@ -695,7 +692,7 @@ func cloneTest(t *testing.T, b *PairTree, start int, p []pair.Pair, wg *sync.Wai
 }
 
 func TestCloneConcurrentOperations(t *testing.T) {
-	b := New(*btreeDegree, lessFn)
+	b := New(lessFn)
 	trees := []*PairTree{}
 	p := perm(cloneTestSize)
 	var wg sync.WaitGroup
@@ -738,7 +735,7 @@ func TestCloneConcurrentOperations(t *testing.T) {
 
 func TestCursor(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
-	tr := New(3, lessFn)
+	tr := New(lessFn)
 	for i := 0; i < 20; i += 2 {
 		tr.ReplaceOrInsert(Int(i))
 	}
@@ -788,7 +785,7 @@ func TestCursor(t *testing.T) {
 
 	for x := 0; x < 1000; x++ {
 		n := rand.Int() % 1000
-		tr := New(4, lessFn)
+		tr := New(lessFn)
 
 		for i := 0; i < n; i++ {
 			tr.ReplaceOrInsert(Int(i))
